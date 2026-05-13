@@ -77,6 +77,98 @@
     flex: 1;
 }
 
+/* =========================================
+   Join modal (modern, vezetett űrlap)
+   ========================================= */
+.join-modal-box {
+    width: 460px;
+    padding: 26px 26px 22px;
+}
+
+.join-hero {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    margin-bottom: 22px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.join-hero-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 16px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 14px;
+    box-shadow: 0 0 0 1px var(--accent-soft), 0 10px 22px var(--accent-glow);
+}
+
+.join-hero h2 {
+    color: var(--text-strong);
+    font-size: 18px;
+    margin: 0 0 4px;
+    letter-spacing: -0.01em;
+}
+
+.join-hero p {
+    color: var(--text-muted);
+    font-size: 12.5px;
+    margin: 0;
+    line-height: 1.45;
+}
+
+.form-field {
+    flex: 1;
+    min-width: 0;
+    margin-bottom: 14px;
+}
+
+.form-field:last-of-type {
+    margin-bottom: 0;
+}
+
+.form-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+}
+
+.form-label svg {
+    color: var(--accent);
+    opacity: 0.85;
+}
+
+.form-input-mono {
+    font-family: 'Consolas', 'JetBrains Mono', monospace;
+    font-size: 13px;
+    letter-spacing: 0.3px;
+}
+
+.form-field .custom-input {
+    margin-bottom: 0;
+}
+
+.form-field-row {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.form-field-row .form-field {
+    margin-bottom: 0;
+}
+
 .modal-actions {
     display: flex;
     gap: 10px;

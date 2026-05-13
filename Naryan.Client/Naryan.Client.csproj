@@ -9,10 +9,10 @@
     <ApplicationIcon>UI\favicon.ico</ApplicationIcon>
 
     <!-- Verzió információ az updaterhez -->
-    <Version>1.0.0</Version>
-    <AssemblyVersion>1.0.0.0</AssemblyVersion>
-    <FileVersion>1.0.0.0</FileVersion>
-    <InformationalVersion>1.0.0</InformationalVersion>
+    <Version>1.0.1</Version>
+    <AssemblyVersion>1.0.1.0</AssemblyVersion>
+    <FileVersion>1.0.1.0</FileVersion>
+    <InformationalVersion>1.0.1</InformationalVersion>
     <Product>Naryan Client</Product>
     <Company>NarShaddar</Company>
     <Copyright>Copyright © 2026 NarShaddar</Copyright>

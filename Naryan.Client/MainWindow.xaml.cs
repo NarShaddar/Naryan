@@ -19,8 +19,18 @@ namespace Naryan.Client
 
         async void InitializeAsync()
         {
-            // A te kőkemény cache-gyilkos megoldásod (Ezért nem ragadnak be az ezeréves fájlok!)
-            var options = new CoreWebView2EnvironmentOptions("--disable-cache");
+            // A virtuális host HTTPS scheme-ben fut, a szerverek viszont sima HTTP-n.
+            // A modern Chromium alapból blokkolja a HTTPS→HTTP fetch-eket (active mixed content),
+            // ezért engedélyezni kell az insecure content-et és a private network requestet,
+            // különben a fetch még el sem indul (catch ág: "A szerver nem elérhető").
+            var browserArgs = string.Join(" ", new[]
+            {
+                "--disable-cache",
+                "--allow-running-insecure-content",
+                "--disable-features=BlockInsecurePrivateNetworkRequests,MixedContentAutoupgrade",
+                "--disable-web-security"
+            });
+            var options = new CoreWebView2EnvironmentOptions(browserArgs);
             var env = await CoreWebView2Environment.CreateAsync(null, Path.Combine(Path.GetTempPath(), "NaryanCache"), options);
             await webView.EnsureCoreWebView2Async(env);
             await webView.CoreWebView2.Profile.ClearBrowsingDataAsync(CoreWebView2BrowsingDataKinds.DiskCache);
