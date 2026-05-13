@@ -1,0 +1,756 @@
+/* =========================================
+   Chat üzenetek és input area
+   ========================================= */
+
+#TextRoomUI {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+    position: relative;
+}
+
+#ChatMessages {
+    flex-grow: 1;
+    overflow-y: auto;
+    padding: 20px 24px 10px;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    scroll-behavior: smooth;
+}
+
+.message {
+    position: relative;
+    padding: 8px 14px;
+    border-radius: var(--radius-sm);
+    word-wrap: break-word;
+    background: transparent;
+    border-left: 3px solid transparent;
+    transition: background-color var(--t-fast), border-color var(--t-fast);
+}
+
+.message:hover {
+    background-color: var(--bg-elevated);
+    border-left-color: var(--accent);
+}
+
+.message:hover .msg-menu {
+    display: flex;
+}
+
+/* --- Üzenet fejléc --- */
+.msg-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 4px;
+}
+
+.msg-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background-color: var(--bg-elevated);
+    background-size: cover;
+    background-position: center;
+    flex-shrink: 0;
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--border-strong);
+}
+
+.msg-avatar.default-avatar {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-weight: 700;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    font-size: 15px;
+}
+
+.msg-header-info {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    min-width: 0;
+}
+
+.sender-name {
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--accent);
+}
+
+.msg-time {
+    font-size: 11px;
+    color: var(--text-faint);
+    font-variant-numeric: tabular-nums;
+}
+
+/* --- Üzenet tartalom (avatar alá igazítás) --- */
+.msg-content, .msg-attachment {
+    padding-left: 48px;
+    word-break: break-word;
+    margin-top: 2px;
+    line-height: 1.55;
+    color: var(--text-main);
+    font-size: 14px;
+}
+
+.code-block {
+    background: #0c0d11;
+    border: 1px solid var(--border-strong);
+    border-left: 3px solid var(--accent);
+    padding: 12px 14px;
+    border-radius: var(--radius-sm);
+    font-family: 'Consolas', 'Courier New', monospace;
+    white-space: pre-wrap;
+    color: #ffb38a;
+    margin: 8px 0;
+    display: block;
+    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.6);
+    font-size: 13px;
+}
+
+.chat-image {
+    max-width: 360px;
+    max-height: 360px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    margin-top: 6px;
+    display: block;
+    border: 1px solid var(--border-color);
+    transition: transform var(--t-fast);
+}
+
+.chat-image:hover {
+    transform: scale(1.01);
+}
+
+.chat-file-link {
+    color: var(--accent);
+    text-decoration: none;
+    background: var(--bg-elevated);
+    padding: 8px 14px;
+    border-radius: var(--radius-sm);
+    display: inline-flex;
+    align-items: center;
+    margin-top: 6px;
+    border: 1px solid var(--border-strong);
+    transition: background-color var(--t-fast);
+    font-size: 13px;
+}
+
+.chat-file-link:hover {
+    background: var(--accent-soft);
+}
+
+.msg-menu {
+    position: absolute;
+    top: -14px;
+    right: 14px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    display: none;
+    padding: 2px;
+    z-index: 10;
+    box-shadow: var(--shadow-md);
+}
+
+.msg-menu .btn-icon {
+    width: 28px;
+    height: 28px;
+}
+
+/* =========================================
+   Typing indicator
+   ========================================= */
+#TypingIndicator {
+    font-size: 12px;
+    color: var(--text-muted);
+    padding: 6px 24px 2px;
+    font-style: italic;
+    display: none;
+    animation: pulseTyping 1.5s infinite;
+    flex-shrink: 0;
+}
+
+@keyframes pulseTyping {
+    0% { opacity: 0.4; }
+    50% { opacity: 1; }
+    100% { opacity: 0.4; }
+}
+
+/* =========================================
+   Input area
+   ========================================= */
+#ChatInputArea {
+    flex-shrink: 0;
+    padding: 0 20px 18px;
+    position: relative;
+}
+
+#FormattingBar {
+    display: flex;
+    justify-content: space-between;
+    background: var(--bg-elevated);
+    padding: 4px 8px;
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+    align-items: center;
+    border: 1px solid var(--border-strong);
+    border-bottom: none;
+}
+
+.format-btn-group {
+    display: flex;
+    gap: 2px;
+}
+
+.format-btn-group button {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 4px 10px;
+    border-radius: var(--radius-sm);
+    transition: background var(--t-fast), color var(--t-fast);
+    font-family: 'Consolas', monospace;
+    font-weight: 700;
+    font-size: 13px;
+}
+
+.format-btn-group button:hover {
+    background: var(--bg-hover);
+    color: var(--accent);
+}
+
+#ChatForm {
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+    background: var(--bg-elevated);
+    border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+    padding: 10px 14px;
+    border: 1px solid var(--border-strong);
+    transition: border-color var(--t-fast), box-shadow var(--t-fast);
+}
+
+#ChatForm:focus-within {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+#ChatInput {
+    flex-grow: 1;
+    background: transparent;
+    border: none;
+    padding: 6px 4px;
+    outline: none;
+    color: var(--text-main);
+    resize: none;
+    font-family: inherit;
+    font-size: 14px;
+    min-height: 22px;
+    max-height: 150px;
+    overflow-y: auto;
+    line-height: 1.5;
+}
+
+#ChatInput::placeholder {
+    color: var(--text-faint);
+}
+
+.chat-send-btn {
+    background: var(--accent);
+    border: none;
+    color: white;
+    cursor: pointer;
+    padding: 8px;
+    transition: filter var(--t-fast), box-shadow var(--t-med), transform var(--t-fast);
+    flex-shrink: 0;
+    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 10px rgba(255, 102, 0, 0.3);
+}
+
+.chat-send-btn:hover {
+    filter: brightness(1.1);
+    box-shadow: 0 6px 14px rgba(255, 102, 0, 0.45);
+    transform: scale(1.04);
+}
+
+.chat-attach-btn {
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: color var(--t-fast), transform var(--t-fast);
+    display: flex;
+    align-items: center;
+    padding: 8px;
+    flex-shrink: 0;
+    border-radius: var(--radius-sm);
+}
+
+.chat-attach-btn:hover {
+    color: var(--accent);
+    background: var(--accent-soft);
+}
+
+/* =========================================
+   Egyforma ikonok az input sorban
+   ========================================= */
+#ChatForm .chat-attach-btn svg,
+#ChatForm .btn-voice-record svg,
+#ChatForm .chat-send-btn svg,
+#ChatForm .chat-icon svg {
+    width: 20px;
+    height: 20px;
+    display: block;
+    margin: 0 auto;
+}
+
+#ChatForm .btn-gif {
+    min-width: 40px;
+}
+
+/* =========================================
+   Hangüzenet rec gomb
+   ========================================= */
+.btn-voice-record {
+    color: var(--text-muted);
+    cursor: pointer;
+    background: transparent;
+    border: none;
+    padding: 8px;
+    transition: color var(--t-fast), transform var(--t-fast);
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    border-radius: var(--radius-sm);
+}
+
+.btn-voice-record:hover {
+    color: var(--accent);
+    background: var(--accent-soft);
+}
+
+.btn-voice-record.recording {
+    color: var(--danger) !important;
+    background: rgba(255, 77, 94, 0.12);
+    animation: pulseRecord 1s infinite;
+}
+
+@keyframes pulseRecord {
+    0% { transform: scale(1); filter: drop-shadow(0 0 5px rgba(255, 77, 94, 0.5)); }
+    50% { transform: scale(1.15); filter: drop-shadow(0 0 14px rgba(255, 77, 94, 0.9)); }
+    100% { transform: scale(1); filter: drop-shadow(0 0 5px rgba(255, 77, 94, 0.5)); }
+}
+
+/* =========================================
+   Saját Naryan Audio Lejátszó
+   ========================================= */
+.naryan-audio-player {
+    display: flex;
+    align-items: center;
+    background: var(--bg-darker);
+    border: 1px solid var(--border-strong);
+    padding: 8px 12px;
+    border-radius: var(--radius-pill);
+    gap: 10px;
+    width: 100%;
+    max-width: 460px;
+    margin-top: 6px;
+    box-shadow: var(--shadow-sm);
+}
+
+.audio-btn {
+    background: var(--accent);
+    color: white;
+    border: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    transition: transform var(--t-fast), box-shadow var(--t-med);
+    flex-shrink: 0;
+    box-shadow: 0 3px 8px rgba(255, 102, 0, 0.35);
+}
+
+.audio-btn:hover {
+    box-shadow: 0 4px 12px var(--accent-glow);
+    transform: scale(1.06);
+}
+
+.audio-btn svg { width: 14px; height: 14px; margin-left: 2px; }
+.audio-btn.playing svg { margin-left: 0; }
+
+.audio-time-display {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-family: 'Consolas', monospace;
+    white-space: nowrap;
+    min-width: 80px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
+.audio-slider-container {
+    flex-grow: 1;
+    height: 6px;
+    position: relative;
+    cursor: pointer;
+}
+
+.audio-slider-bg {
+    position: absolute;
+    inset: 0;
+    background: var(--bg-elevated);
+    border-radius: 3px;
+}
+
+.audio-slider-progress {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 0%;
+    background: linear-gradient(90deg, var(--accent), var(--accent-hover));
+    border-radius: 3px;
+    box-shadow: 0 0 6px var(--accent-glow);
+    pointer-events: none;
+}
+
+.audio-control-btn {
+    background: transparent;
+    color: var(--text-muted);
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+    border-radius: var(--radius-sm);
+    transition: color var(--t-fast), background var(--t-fast);
+    flex-shrink: 0;
+}
+
+.audio-control-btn:hover {
+    color: var(--accent);
+    background: var(--bg-hover);
+}
+
+.audio-control-btn svg { width: 18px; height: 18px; }
+
+.audio-speed-btn {
+    font-size: 11px;
+    font-weight: 700;
+    font-family: 'Consolas', monospace;
+    width: 32px;
+}
+
+.audio-volume-container {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.audio-volume-slider {
+    width: 50px;
+    cursor: pointer;
+    accent-color: var(--accent);
+    height: 4px;
+}
+
+/* =========================================
+   GIF kereső panel
+   ========================================= */
+.btn-gif {
+    color: var(--accent);
+    cursor: pointer;
+    background: transparent;
+    border: 1px solid transparent;
+    font-weight: 800;
+    font-size: 12px;
+    padding: 6px 10px;
+    border-radius: var(--radius-sm);
+    transition: background var(--t-fast), border-color var(--t-fast), transform var(--t-fast);
+    font-family: Arial, sans-serif;
+    letter-spacing: 0.5px;
+}
+
+.btn-gif:hover {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    transform: scale(1.02);
+}
+
+#GifPickerPanel {
+    position: absolute;
+    bottom: 70px;
+    right: 20px;
+    width: 340px;
+    height: 420px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-md);
+    display: none;
+    flex-direction: column;
+    box-shadow: var(--shadow-lg);
+    z-index: 100;
+    overflow: hidden;
+}
+
+.gif-head {
+    display: flex;
+    align-items: center;
+    background: var(--bg-darker);
+    border-bottom: 1px solid var(--border-color);
+    padding: 8px;
+    gap: 6px;
+}
+
+#GifSearchInput {
+    flex-grow: 1;
+    background: var(--bg-main);
+    border: 1px solid var(--border-color);
+    color: var(--text-main);
+    padding: 10px 12px;
+    outline: none;
+    font-family: inherit;
+    font-size: 13px;
+    border-radius: var(--radius-sm);
+}
+
+#GifSearchInput:focus {
+    border-color: var(--accent);
+}
+
+#GifResults {
+    flex-grow: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    padding: 10px;
+}
+
+.gif-item {
+    width: calc(50% - 2.5px);
+    height: 120px;
+    object-fit: cover;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: transform var(--t-fast), box-shadow var(--t-med);
+}
+
+.gif-item:hover {
+    transform: scale(1.03);
+    box-shadow: 0 0 12px var(--accent-glow);
+}
+
+/* =========================================
+   Linkek és YouTube
+   ========================================= */
+.chat-link {
+    color: var(--accent);
+    text-decoration: none;
+    font-weight: 500;
+    word-break: break-all;
+}
+
+.chat-link:hover {
+    text-decoration: underline;
+    text-shadow: 0 0 6px var(--accent-glow);
+}
+
+.chat-youtube-embed {
+    margin: 8px 0 4px;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    border: 1px solid var(--border-strong);
+    max-width: 460px;
+    box-shadow: var(--shadow-md);
+}
+
+.chat-youtube-embed iframe {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    border: none;
+    display: block;
+}
+
+/* =========================================
+   Státusz pötty
+   ========================================= */
+.msg-avatar, .member-avatar, .avatar-small {
+    position: relative !important;
+}
+
+.status-dot {
+    position: absolute;
+    bottom: -2px;
+    right: -2px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 2px solid var(--bg-darker);
+    z-index: 2;
+    transition: background-color var(--t-med);
+}
+
+.status-online { background-color: var(--success); }
+.status-idle { background-color: var(--warning); }
+.status-dnd { background-color: var(--danger); }
+.status-offline { background-color: var(--text-faint); }
+
+/* =========================================
+   Státusz menü
+   ========================================= */
+.status-menu {
+    display: none;
+    position: absolute;
+    bottom: 70px;
+    left: 12px;
+    width: 200px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-md);
+    padding: 4px;
+    box-shadow: var(--shadow-lg);
+    z-index: 200;
+}
+
+.status-option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 12px;
+    color: var(--text-main);
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    transition: background var(--t-fast), color var(--t-fast);
+    font-size: 13px;
+}
+
+.status-option:hover {
+    background: var(--bg-hover);
+    color: var(--text-strong);
+}
+
+.status-dot-inline {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+}
+
+.status-separator {
+    height: 1px;
+    background: var(--border-color);
+    margin: 4px 0;
+}
+
+/* =========================================
+   Emoji picker
+   ========================================= */
+.emoji-picker {
+    display: none;
+    position: absolute;
+    bottom: 70px;
+    right: 60px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-md);
+    padding: 10px;
+    width: 260px;
+    box-shadow: var(--shadow-lg);
+    grid-template-columns: repeat(6, 1fr);
+    gap: 6px;
+    max-height: 220px;
+    overflow-y: auto;
+    z-index: 200;
+}
+
+#ReactionPicker {
+    position: fixed;
+    z-index: 3000;
+}
+
+.emoji-item {
+    font-size: 20px;
+    cursor: pointer;
+    text-align: center;
+    transition: transform var(--t-fast), background var(--t-fast);
+    user-select: none;
+    padding: 4px;
+    border-radius: var(--radius-sm);
+}
+
+.emoji-item:hover {
+    transform: scale(1.25);
+    background: var(--bg-hover);
+}
+
+/* =========================================
+   Jumbo emoji
+   ========================================= */
+.jumbo-emoji {
+    font-size: 44px !important;
+    line-height: 1.2;
+    display: inline-block;
+    animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes popIn {
+    0% { transform: scale(0.5); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+/* =========================================
+   Reakciók
+   ========================================= */
+.msg-reactions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-top: 8px;
+    padding-left: 48px;
+}
+
+.reaction-badge {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-pill);
+    padding: 2px 9px;
+    font-size: 12.5px;
+    color: var(--text-muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    transition: background var(--t-fast), border-color var(--t-fast);
+    user-select: none;
+}
+
+.reaction-badge:hover {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+}
+
+.reaction-badge.reacted {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    color: var(--accent);
+}
+
+.react-count {
+    font-weight: 600;
+}

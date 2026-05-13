@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Naryan Client</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/6.0.1/signalr.min.js"></script>
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/chat.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/modals.css">
+    <link rel="stylesheet" href="css/webrtc.css">
+</head>
+<body>
+    <!-- ============================================================
+         Floating utility elements
+         ============================================================ -->
+    <div id="Toast"></div>
+    <div id="GlobalTooltip"></div>
+    <div id="NotificationContainer"></div>
+    <div id="NotifMenu"></div>
+    <div id="ReactionPicker" class="emoji-picker"></div>
+
+    <!-- ============================================================
+         Modals
+         ============================================================ -->
+    <div id="ConfirmModal" class="modal-overlay">
+        <div class="modal-box modal-confirm">
+            <div class="modal-confirm-icon">
+                <svg width="42" height="42" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+            </div>
+            <h3 id="ConfirmTitle">Biztosan törlöd?</h3>
+            <p id="ConfirmText">Ezt a műveletet nem lehet visszavonni.</p>
+            <div class="modal-actions">
+                <button class="btn-gray" onclick="closeConfirmModal()">Mégse</button>
+                <button id="ConfirmAcceptBtn" class="btn-danger-solid">Megerősítés</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="JoinServerModal" class="modal-overlay">
+        <div class="modal-box">
+            <div class="modal-head">
+                <h2>Csatlakozás szerverhez</h2>
+                <p>Add meg a meghívót és a hitelesítő adataidat.</p>
+            </div>
+            <input type="text" id="JoinInviteCode" class="custom-input" placeholder="IP:PORT/KÓD (pl. 127.0.0.1:9090/ABCD)">
+            <div class="modal-row">
+                <input type="text" id="JoinUsername" class="custom-input" placeholder="Felhasználónév">
+                <input type="password" id="JoinPassword" class="custom-input" placeholder="Jelszó">
+            </div>
+            <div id="JoinError" class="form-error"></div>
+            <div class="modal-actions">
+                <button class="btn-gray" onclick="closeModal('JoinServerModal')">Mégse</button>
+                <button class="btn-accent flex-2" onclick="joinNewServer()">Csatlakozás</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="ReportModal" class="modal-overlay">
+        <div class="modal-box">
+            <div class="modal-head">
+                <h2>Jelentés küldése</h2>
+                <p>A moderátorok minden bejelentést áttekintenek.</p>
+            </div>
+            <input type="hidden" id="ReportTargetId">
+            <textarea id="ReportReason" class="custom-input" placeholder="Részletes indoklás a moderátornak..." rows="4"></textarea>
+            <div class="modal-actions">
+                <button class="btn-gray" onclick="closeModal('ReportModal')">Mégse</button>
+                <button class="btn-danger-solid" onclick="submitReport()">Jelentés leadása</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================
+         Update Modal
+         ============================================================ -->
+    <div id="UpdateModal" class="modal-overlay">
+        <div class="modal-box update-modal-box">
+            <div class="updater-head">
+                <div id="UpdaterStatusIcon" class="updater-icon updater-icon-info">
+                    <svg width="36" height="36" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3"/></svg>
+                </div>
+                <h2 id="UpdaterStatusTitle">Frissítés keresése</h2>
+                <p id="UpdaterStatusMessage"></p>
+            </div>
+
+            <div id="UpdaterDetails" class="updater-details">
+                <div class="updater-version-row">
+                    <span class="update-label">Verzió</span>
+                    <div id="UpdaterVersionPair" class="update-version-pair"></div>
+                </div>
+                <div class="updater-release-name" id="UpdaterReleaseName"></div>
+                <div class="updater-release-notes" id="UpdaterReleaseNotes"></div>
+            </div>
+
+            <div id="UpdateProgressPanel" class="update-progress-panel">
+                <div class="progress-bar"><div id="UpdateProgressBar" class="progress-fill" style="background: var(--accent); box-shadow: 0 0 10px var(--accent-glow);"></div></div>
+            </div>
+
+            <div class="modal-actions">
+                <button id="UpdateCloseBtn" class="btn-gray" onclick="closeUpdateModal()">Bezárás</button>
+                <button id="UpdaterActions" class="btn-accent update-action-btn flex-2" onclick="startUpdateInstall()" style="display:none;">
+                    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V4"/></svg>
+                    Frissítés telepítése most
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="AdminModal" class="modal-overlay">
+        <div class="modal-box modal-large">
+            <div class="modal-head modal-head-row">
+                <div>
+                    <h2>Moderátor panel</h2>
+                    <p>Szobák, meghívók és felhasználói műveletek.</p>
+                </div>
+                <button class="btn-icon modal-close" onclick="closeModal('AdminModal')" data-tip="Bezárás">
+                    <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+
+            <div class="admin-tabs">
+                <button class="tab-btn active" onclick="switchAdminTab('AdminRooms')">Szobák</button>
+                <button class="tab-btn" onclick="switchAdminTab('AdminUsers')">Felhasználók</button>
+            </div>
+
+            <div id="AdminRooms" class="admin-content">
+                <div class="admin-section">
+                    <label class="setting-label">Új szoba létrehozása</label>
+                    <div class="admin-create-row">
+                        <input type="text" id="NewChannelName" class="custom-input" placeholder="Szoba neve">
+                        <select id="NewChannelType" class="custom-input">
+                            <option value="text">Szöveges</option>
+                            <option value="voice">Hangcsatorna</option>
+                        </select>
+                        <input type="number" id="NewChannelMaxUsers" class="custom-input" placeholder="Max fő (0 = ∞)" min="0" value="0">
+                        <button class="btn-accent" onclick="adminCreateChannel()">Létrehoz</button>
+                    </div>
+                </div>
+
+                <div class="admin-section">
+                    <label class="setting-label">Meglévő szobák</label>
+                    <div id="AdminChannelsList" class="admin-list"></div>
+                </div>
+            </div>
+
+            <div id="AdminUsers" class="admin-content">
+                <div class="admin-section">
+                    <label class="setting-label">Felhasználó kitiltása ID alapján</label>
+                    <div class="admin-create-row">
+                        <input type="number" id="BanUserId" class="custom-input" placeholder="Felhasználó ID">
+                        <button class="btn-danger-solid" onclick="adminBanUser()">Kitiltás</button>
+                    </div>
+                    <p class="admin-hint">Az ID-t a Tagok nézetből vagy a szerver admin felületéről kérdezheted le.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================
+         Active call banner (folyamatban lévő hívás visszatérő gombja)
+         ============================================================ -->
+    <div id="ActiveCallBanner" onclick="returnToCall()">
+        <div class="pulsing-dot"></div>
+        <span>Visszatérés az aktív híváshoz</span>
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"></path></svg>
+    </div>
+
+    <!-- ============================================================
+         Main app
+         ============================================================ -->
+    <div id="AppContainer">
+        <div id="ServerBar">
+            <div class="server-icon home" onclick="showHubScreen()" data-tip="Kezdőlap">
+                <img src="logo.png" alt="Naryan">
+            </div>
+            <div class="divider-line"></div>
+            <div id="SavedServersList"></div>
+            <div class="server-icon add" onclick="openJoinModal()" data-tip="Új szerver hozzáadása">
+                <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"></path></svg>
+            </div>
+        </div>
+
+        <!-- ----------------------------------------------------
+             Hub Screen (kezdő üdvözlő képernyő)
+             ---------------------------------------------------- -->
+        <div id="HubScreen">
+            <div class="hub-left">
+                <div class="hub-logo">
+                    <img src="logo.png" alt="Naryan">
+                </div>
+                <h1>Naryan Core</h1>
+                <p class="hub-subtitle">Kódolva a jövőnek. Kommunikáció határok nélkül.</p>
+                <button class="btn-accent btn-large" onclick="openJoinModal()">
+                    <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"></path></svg>
+                    Kapcsolódás új szerverhez
+                </button>
+
+                <div class="hub-stats">
+                    <div class="hub-stat-card">
+                        <div class="hub-stat-label">Mentett szerverek</div>
+                        <div class="hub-stat-value" id="HubStatServers">0</div>
+                    </div>
+                    <div class="hub-stat-card">
+                        <div class="hub-stat-label">Verzió</div>
+                        <div class="hub-stat-value">Naryan Studio</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="hub-right">
+                <div class="hub-right-head">
+                    <h3>Mentett szervereid</h3>
+                    <span class="hub-hint">Kattints egy kártyára a csatlakozáshoz</span>
+                </div>
+                <div id="HubServersGrid"></div>
+            </div>
+        </div>
+
+        <!-- ----------------------------------------------------
+             Szerver oldali kontent
+             ---------------------------------------------------- -->
+        <div id="ServerContent">
+            <!-- Bal sáv: szerver fejléc, csatornák, profil -->
+            <div id="ChannelSidebar">
+                <div class="sidebar-header">
+                    <span id="CurrentServerName" onclick="openServerInfo()" data-tip="Szerver Információk">Szerver</span>
+                    <button id="BtnAdminMenu" class="btn-icon" onclick="openAdminModal()" data-tip="Moderátor panel">
+                        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+                    </button>
+                </div>
+
+                <div class="sidebar-scroll">
+                    <div class="list-item list-item-feature" onclick="openMembersView()">
+                        <span class="icon">
+                            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                        </span>
+                        <span class="list-item-label">DM-ek és Tagok</span>
+                    </div>
+
+                    <div class="sidebar-section-title">Csatornák</div>
+                    <div id="ChannelsList"></div>
+                </div>
+
+                <div id="UserProfileBar">
+                    <div id="StatusMenu" class="status-menu">
+                        <div class="status-option" onclick="setMyStatus('online')"><div class="status-dot-inline status-online"></div> Online</div>
+                        <div class="status-option" onclick="setMyStatus('idle')"><div class="status-dot-inline status-idle"></div> Távollévő</div>
+                        <div class="status-option" onclick="setMyStatus('dnd')"><div class="status-dot-inline status-dnd"></div> Ne zavarjanak</div>
+                        <div class="status-separator"></div>
+                        <div class="status-option" onclick="setMyStatus('offline')"><div class="status-dot-inline status-offline"></div> Láthatatlan</div>
+                    </div>
+
+                    <div class="profile-info-wrap" onclick="toggleStatusMenu()" data-tip="Állapot módosítása">
+                        <div id="MyAvatar" class="avatar-small">?</div>
+                        <div class="info">
+                            <div id="MyUsername">Név</div>
+                            <div id="MyRole">User</div>
+                        </div>
+                    </div>
+                    <div class="profile-bar-actions">
+                        <div class="btn-icon" onclick="openSettingsView()" data-tip="Beállítások">
+                            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                        </div>
+                        <div class="btn-icon text-red" onclick="disconnectFromServer()" data-tip="Lecsatlakozás">
+                            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Jobb panel: header + nézetek -->
+            <div id="MainContent">
+                <div class="header-bar">
+                    <div class="header-title">
+                        <span id="HeaderIcon">#</span>
+                        <span id="HeaderChannelName">Válassz szobát</span>
+                    </div>
+                    <div class="header-actions">
+                        <div id="CallButtons">
+                            <button class="btn-gray btn-small" onclick="startCall('audio')">
+                                <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path></svg>
+                                Hang
+                            </button>
+                            <button class="btn-accent btn-small" onclick="startCall('video')">
+                                <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                                Videó
+                            </button>
+                        </div>
+
+                        <div class="bell-container" onclick="toggleNotifMenu()" data-tip="Értesítések">
+                            <svg class="bell-icon" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
+                            <div class="badge" id="NotifBadge">!</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- =========================
+                     Members View
+                     ========================= -->
+                <div id="MembersView" class="view-container view-padded">
+                    <div class="view-head">
+                        <h3>Szerver Tagok</h3>
+                        <span class="view-head-hint">Kattints a buborékra DM-hez</span>
+                    </div>
+                    <div id="MembersListContainer" class="grid-layout"></div>
+                </div>
+
+                <!-- =========================
+                     Server Info View
+                     ========================= -->
+                <div id="ServerInfoView" class="view-container view-padded view-centered">
+                    <div class="view-inner">
+                        <div class="view-head">
+                            <h3>Szerver Információk</h3>
+                            <span class="view-head-hint">Általános szerver adatok</span>
+                        </div>
+
+                        <div class="setting-section">
+                            <div class="info-row">
+                                <span class="info-label">Szerver neve</span>
+                                <strong id="InfoServerName" class="info-value-accent">Betöltés...</strong>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Regisztrált tagok</span>
+                                <strong id="InfoMemberCount" class="info-value">0 fő</strong>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Képernyőmegosztás limit</span>
+                                <strong id="InfoMaxFps" class="info-value">Betöltés...</strong>
+                            </div>
+                        </div>
+
+                        <div class="setting-section">
+                            <div class="info-row info-row-tight">
+                                <span class="info-label-small">Szerver Tárhely Használat</span>
+                                <strong id="InfoStorageText" class="info-value-small">Betöltés...</strong>
+                            </div>
+                            <div class="progress-bar">
+                                <div id="InfoStorageBar" class="progress-fill"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- =========================
+                     Settings View
+                     ========================= -->
+                <div id="SettingsView" class="view-container view-padded view-centered">
+                    <div class="view-inner">
+                        <div class="view-head">
+                            <h3>Felhasználói Beállítások</h3>
+                            <span class="view-head-hint">Profil, hangok és kinézet</span>
+                        </div>
+
+                        <div class="setting-section">
+                            <label class="setting-label">Profilkép módosítása</label>
+                            <div class="settings-avatar-row">
+                                <div id="SettingsAvatarPreview" class="avatar-small avatar-large">?</div>
+                                <label for="AvatarUploadInput" class="btn-accent btn-medium">Új kép tallózása</label>
+                                <input type="file" id="AvatarUploadInput" hidden accept="image/*" onchange="uploadAvatar(this)">
+                            </div>
+                        </div>
+
+                        <div class="setting-section">
+                            <label class="setting-label">Képernyőmegosztás</label>
+                            <div class="volume-control">
+                                <span>Saját adás FPS (Max szerver limit)</span>
+                                <div class="range-row">
+                                    <input type="range" id="set_fps" min="1" max="15" step="1" value="2" onchange="updateFpsSetting(this.value)">
+                                    <span id="fps_display" class="range-display">2</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="setting-section">
+                            <label class="setting-label">Értesítések &amp; Hangok</label>
+                            <div class="volume-control">
+                                <span>Windows asztali üzenetek</span>
+                                <label class="switch"><input type="checkbox" id="set_notif_os" onchange="updateNotifSetting('os', this.checked)"><span class="slider round"></span></label>
+                            </div>
+                            <div class="volume-control">
+                                <span>Alkalmazáson belüli popup</span>
+                                <label class="switch"><input type="checkbox" id="set_notif_app" onchange="updateNotifSetting('app', this.checked)"><span class="slider round"></span></label>
+                            </div>
+                            <div class="volume-control">
+                                <span>Kattintás / Enter</span>
+                                <div class="range-row">
+                                    <input type="range" id="vol_click" min="0" max="1" step="0.1" value="0.2" onchange="updateVolume('click', this.value)">
+                                    <button class="btn-icon" onclick="playTestSound('click')" data-tip="Próbahang"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></button>
+                                </div>
+                            </div>
+                            <div class="volume-control">
+                                <span>Üzenet érkezett</span>
+                                <div class="range-row">
+                                    <input type="range" id="vol_msg" min="0" max="1" step="0.1" value="0.5" onchange="updateVolume('msg', this.value)">
+                                    <button class="btn-icon" onclick="playTestSound('msg')" data-tip="Próbahang"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></button>
+                                </div>
+                            </div>
+                            <div class="volume-control">
+                                <span>Hívás</span>
+                                <div class="range-row">
+                                    <input type="range" id="vol_join" min="0" max="1" step="0.1" value="0.5" onchange="updateVolume('join', this.value)">
+                                    <button class="btn-icon" onclick="playTestSound('join')" data-tip="Próbahang"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></button>
+                                </div>
+                            </div>
+                            <div class="volume-control">
+                                <span>Bejövő Hívás</span>
+                                <div class="range-row">
+                                    <input type="range" id="vol_call" min="0" max="1" step="0.1" value="0.5" onchange="updateVolume('call', this.value)">
+                                    <button class="btn-icon" onclick="playTestSound('call')" data-tip="Próbahang"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="setting-section">
+                            <label class="setting-label">Téma Színe (Naryan Client)</label>
+                            <div class="settings-theme-row">
+                                <input type="color" id="ThemeColorPicker" oninput="changeThemeColor(this.value)">
+                                <button class="btn-gray" onclick="resetThemeColor()">Alapértelmezett szín</button>
+                            </div>
+                        </div>
+
+                        <div class="setting-section">
+                            <label class="setting-label">Naryan Client</label>
+                            <div class="info-row">
+                                <span class="info-label">Telepített verzió</span>
+                                <strong id="UpdaterCurrentVersion" class="info-value-accent">v0.0.0</strong>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Automatikus frissítés</span>
+                                <span class="info-value" style="font-size: 12px; color: var(--text-muted);">Induláskor ellenőrzés a GitHub-on</span>
+                            </div>
+                            <div style="margin-top: 12px;">
+                                <button class="btn-accent btn-medium" onclick="checkForUpdates()">
+                                    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                                    Frissítés keresése most
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- =========================
+                     Chat Room View
+                     ========================= -->
+                <div id="ChatRoomView" class="view-container active">
+                    <div id="TextRoomUI">
+                        <div id="DragOverlay">
+                            <div class="drag-overlay-inner">
+                                <svg width="48" height="48" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+                                <span>Húzd ide a fájlt a feltöltéshez</span>
+                            </div>
+                        </div>
+                        <div id="ChatMessages"></div>
+                        <div id="TypingIndicator"></div>
+
+                        <div id="ReplyPreview">
+                            <div class="quote-content">
+                                <div class="quote-sender" id="ReplySender"></div>
+                                <div class="quote-text" id="ReplyText"></div>
+                            </div>
+                            <span class="reply-close-btn" onclick="cancelReply()" data-tip="Válasz megszakítása">
+                                <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
+                            </span>
+                        </div>
+
+                        <div id="GifPickerPanel">
+                            <div class="gif-head">
+                                <input type="text" id="GifSearchInput" placeholder="Keresés a Tenor-on..." oninput="searchGif()">
+                                <button class="btn-icon" onclick="toggleGifPanel()" data-tip="Bezárás">
+                                    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                </button>
+                            </div>
+                            <div id="GifResults"></div>
+                        </div>
+
+                        <div id="ChatInputArea">
+                            <div id="EmojiPicker" class="emoji-picker"></div>
+
+                            <div id="FormattingBar">
+                                <div class="format-btn-group">
+                                    <button type="button" onclick="formatText('**')" data-tip="Félkövér"><b>B</b></button>
+                                    <button type="button" onclick="formatText('*')" data-tip="Dőlt"><i>I</i></button>
+                                    <button type="button" onclick="formatText('```')" data-tip="Kódblokk"><span>&lt;/&gt;</span></button>
+                                </div>
+                                <button type="button" class="btn-icon text-red" onclick="deleteAllMyMessages()" data-tip="Saját üzenetek törlése">
+                                    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                </button>
+                            </div>
+
+                            <form id="ChatForm" onsubmit="event.preventDefault(); sendChatMessage(); return false;">
+                                <label for="ChatFileInput" class="chat-attach-btn" data-tip="Fájl csatolása">
+                                    <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path></svg>
+                                </label>
+                                <input type="file" id="ChatFileInput" hidden onchange="if(this.files.length > 0) { uploadChatFile(this.files[0]); this.value = ''; }">
+
+                                <button type="button" id="BtnGif" class="btn-gif" onclick="toggleGifPanel()" data-tip="GIF kereső">GIF</button>
+
+                                <textarea id="ChatInput" placeholder="Írj üzenetet..." rows="1" disabled></textarea>
+
+                                <button type="button" id="BtnEmoji" class="btn-icon chat-icon" onclick="toggleEmojiPicker()" data-tip="Emojik">
+                                    <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                </button>
+
+                                <button type="button" id="BtnVoiceRecord" class="btn-voice-record" onclick="toggleVoiceRecord()" data-tip="Hangüzenet">
+                                    <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 14a3 3 0 003-3V6a3 3 0 00-6 0v5a3 3 0 003 3zm5-3a5 5 0 01-10 0M12 19v3m-3 0h6"></path></svg>
+                                </button>
+
+                                <button type="submit" class="chat-send-btn" data-tip="Küldés">
+                                    <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- =========================
+                     Voice Room (csak hangcsatorna nézet, prezentációval)
+                     ========================= -->
+                <div id="VoiceRoomUI" class="view-container">
+                    <div id="PresentationStage">
+                        <img id="PreziImage">
+                        <div id="PreziSenderName"></div>
+                        <div class="voice-empty">
+                            <svg width="64" height="64" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>
+                            <p>Csatlakoztál a hangcsatornához.</p>
+                            <span>Indíts képernyőmegosztást, vagy várj a többiek bekapcsolódására.</span>
+                        </div>
+                    </div>
+
+                    <div class="voice-controls-bar">
+                        <button id="BtnVoiceMic" class="media-btn" onclick="toggleAudio()" data-tip="Mikrofon Ki/Be">
+                            <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>
+                        </button>
+                        <button id="BtnVoicePrezi" class="media-btn" onclick="togglePresentation()" data-tip="Képernyőmegosztás">
+                            <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                        </button>
+                        <button class="media-btn btn-hangup" onclick="leaveVoiceRoom()" data-tip="Kilépés a csatornából">
+                            <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 8l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2M5 3a2 2 0 00-2 2v1c0 8.284 6.716 15 15 15h1a2 2 0 002-2v-3.28a1 1 0 00-.684-.948l-4.493-1.498a1 1 0 00-1.21.502l-1.13 2.257a11.042 11.042 0 01-5.516-5.517l2.257-1.128a1 1 0 00.502-1.21L9.228 3.683A1 1 0 008.279 3H5z"></path></svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- =========================
+                     Privát Hívás Overlay
+                     ========================= -->
+                <div id="CallOverlay">
+                    <div id="CallHeader"><h2 id="CallStatusText">Kapcsolódás...</h2></div>
+
+                    <div id="VideoGridContainer"></div>
+
+                    <div id="CallControls">
+                        <div id="IncomingCallControls">
+                            <button id="BtnAnswer" class="media-btn btn-answer" onclick="answerCall()" data-tip="Felvesz">
+                                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path></svg>
+                            </button>
+                            <button id="BtnDecline" class="media-btn btn-hangup" onclick="declineCall()" data-tip="Elutasít">
+                                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 8l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2M5 3a2 2 0 00-2 2v1c0 8.284 6.716 15 15 15h1a2 2 0 002-2v-3.28a1 1 0 00-.684-.948l-4.493-1.498a1 1 0 00-1.21.502l-1.13 2.257a11.042 11.042 0 01-5.516-5.517l2.257-1.128a1 1 0 00.502-1.21L9.228 3.683A1 1 0 008.279 3H5z"></path></svg>
+                            </button>
+                        </div>
+                        <div id="ActiveCallControls">
+                            <button id="BtnMic" class="media-btn" onclick="toggleVideoCallAudio()" data-tip="Mikrofon Ki/Be">
+                                <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>
+                            </button>
+                            <button id="BtnCam" class="media-btn" onclick="toggleVideo()" data-tip="Kamera Ki/Be">
+                                <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                            </button>
+                            <button id="BtnScreen" class="media-btn" onclick="toggleScreenShare()" data-tip="Képernyőmegosztás">
+                                <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                            </button>
+                            <button id="BtnHangup" class="media-btn btn-hangup" onclick="endCall()" data-tip="Hívás befejezése">
+                                <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 8l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2M5 3a2 2 0 00-2 2v1c0 8.284 6.716 15 15 15h1a2 2 0 002-2v-3.28a1 1 0 00-.684-.948l-4.493-1.498a1 1 0 00-1.21.502l-1.13 2.257a11.042 11.042 0 01-5.516-5.517l2.257-1.128a1 1 0 00.502-1.21L9.228 3.683A1 1 0 008.279 3H5z"></path></svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script src="js/updater.js"></script>
+    <script src="js/globals.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/chat.js"></script>
+    <script src="js/webrtc.js"></script>
+    <script src="js/signalr_client.js"></script>
+</body>
+</html>
