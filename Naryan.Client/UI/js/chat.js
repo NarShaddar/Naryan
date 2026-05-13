@@ -61,10 +61,55 @@ function formatText(symbol) {
     textarea.focus();
 }
 
-function appendMessage(text, isMine, msgId, time, senderName, senderId, reactionsJson = "{}") {
+// Két dátum azonos napon van-e (lokál idő)
+function _sameDay(a, b) {
+    if (!a || !b) return false;
+    return a.getFullYear() === b.getFullYear()
+        && a.getMonth() === b.getMonth()
+        && a.getDate() === b.getDate();
+}
+
+// Felhasználóbarát nap-címke (Ma / Tegnap / yyyy. MM. dd.)
+function _formatDateLabel(d) {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const yest = new Date(today.getTime() - 86400000);
+    const target = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    if (target.getTime() === today.getTime()) return "Ma";
+    if (target.getTime() === yest.getTime()) return "Tegnap";
+    return d.getFullYear() + ". " + String(d.getMonth() + 1).padStart(2, '0') + ". " + String(d.getDate()).padStart(2, '0') + ".";
+}
+
+function _maybeInsertDateSeparator(container, msgDate) {
+    if (!msgDate) return;
+    // Az utolsó üzenet dátumát az utolsó .message[data-iso] attribútumából olvassuk
+    let lastMsg = container.querySelector('.message:last-of-type');
+    let lastDate = null;
+    if (lastMsg && lastMsg.dataset && lastMsg.dataset.iso) {
+        lastDate = new Date(lastMsg.dataset.iso);
+    }
+    if (lastDate && _sameDay(lastDate, msgDate)) return;
+
+    let sep = document.createElement('div');
+    sep.className = 'date-separator';
+    sep.innerHTML = `<span class="date-separator-label">${_formatDateLabel(msgDate)}</span>`;
+    container.appendChild(sep);
+}
+
+function appendMessage(text, isMine, msgId, time, senderName, senderId, reactionsJson = "{}", isoTimestamp = null) {
     const container = document.getElementById('ChatMessages');
-    const msgDiv = document.createElement('div'); 
+
+    // Dátum elválasztó vonal, ha új nap kezdődik
+    let msgDate = null;
+    if (isoTimestamp) {
+        let parsed = new Date(isoTimestamp);
+        if (!isNaN(parsed.getTime())) msgDate = parsed;
+    }
+    _maybeInsertDateSeparator(container, msgDate);
+
+    const msgDiv = document.createElement('div');
     msgDiv.className = 'message';
+    if (isoTimestamp) msgDiv.dataset.iso = isoTimestamp;
 
     if (msgId) msgDiv.id = `msg-${msgId}`;
 
@@ -83,7 +128,9 @@ function appendMessage(text, isMine, msgId, time, senderName, senderId, reaction
 
     if (senderUser && senderUser.avatar) {
         let avatarUrl = senderUser.avatar.startsWith('http') ? senderUser.avatar : currentServerUrl + senderUser.avatar;
-        avatarHtml = `<div class="msg-avatar" style="background-image: url('${avatarUrl}');"></div>`;
+        let initial = senderName ? senderName.charAt(0).toUpperCase() : '?';
+        // default-avatar fallback: ha a blob URL nem töltődik be, marad az initial
+        avatarHtml = `<div class="msg-avatar default-avatar" data-bg-src="${avatarUrl}">${initial}</div>`;
     } else {
         let initial = senderName ? senderName.charAt(0).toUpperCase() : '?';
         avatarHtml = `<div class="msg-avatar default-avatar">${initial}</div>`;
@@ -125,8 +172,9 @@ function appendMessage(text, isMine, msgId, time, senderName, senderId, reaction
         
         // Képek
         if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) {
-            contentHtml += `<div class="msg-attachment"><img src="${currentServerUrl}${fileUrl}" class="chat-image" onclick="downloadFile('${currentServerUrl}${fileUrl}', '${fileName}')" title="Kattints a letöltéshez"></div>`;
-        } 
+            let imgFullUrl = currentServerUrl + fileUrl;
+            contentHtml += `<div class="msg-attachment"><img data-src="${imgFullUrl}" class="chat-image" onclick="downloadFile('${imgFullUrl}', '${fileName}')" title="Kattints a letöltéshez" alt=""></div>`;
+        }
         // Hangfájlok (Lejátszó)
         else if (['mp3', 'wav', 'ogg', 'webm', 'm4a'].includes(ext)) {
             let uniqueId = Math.random().toString(36).substr(2, 9);
@@ -336,19 +384,19 @@ async function uploadAvatar(input) {
                             let data = await res.json();
                             let avatarUrl = data.url;
                             let fullUrl = currentServerUrl + avatarUrl;
-                            // Csak a beállítások ablak kis előnézetét frissítjük kézzel
+                            // Cache invalidate: ha ugyanaz az URL nem cache-elve, frissül
+                            if (window.naryanImageCache) window.naryanImageCache.delete(fullUrl);
+                            // Settings előnézet — blob URL-en keresztül
                             const preview = document.getElementById('SettingsAvatarPreview');
                             preview.innerHTML = "";
-                            preview.style.backgroundImage = `url('${fullUrl}')`;
-                            preview.style.backgroundSize = "cover";
-                            preview.style.backgroundPosition = "center";
                             preview.style.color = "transparent";
-                            
+                            window.naryanLoadBg(preview, fullUrl);
+
                             // A memóriában azonnal átírjuk a saját képünket
                             let me = serverUsersCache.find(u => u.id === currentUserId);
                             if (me) me.avatar = avatarUrl;
 
-                            // És rábízzuk a bal alsó sarkot a profi függvényünkre! (Pötty megmarad)
+                            // Bal alsó saját profil frissítése
                             refreshMyProfileUI();
                             if (hubConnection) {
                                 hubConnection.invoke("ChangeAvatar", currentUserId, avatarUrl).catch(err => console.error(err));
@@ -410,18 +458,29 @@ async function uploadChatFile(file) {
     }
 }
 
-function downloadFile(url, filename) {
-    showToast("Letöltés indítása...", false); 
-    
-    let relativePath = url.replace(currentServerUrl, '');
-    let downloadUrl = `${currentServerUrl}/api/download?file=${encodeURIComponent(relativePath)}&name=${encodeURIComponent(filename)}`;
-    
-    const a = document.createElement('a');
-    a.href = downloadUrl;
-    a.target = "_blank"; // <--- EZ A VARÁZSSZÓ, AMI MEGHAGYJA A KAPCSOLATOT!
-    document.body.appendChild(a); 
-    a.click();
-    document.body.removeChild(a);
+async function downloadFile(url, filename) {
+    showToast("Letöltés indítása...", false);
+
+    try {
+        let relativePath = url.replace(currentServerUrl, '');
+        let downloadUrl = `${currentServerUrl}/api/download?file=${encodeURIComponent(relativePath)}&name=${encodeURIComponent(filename)}`;
+        // Fetch + blob, így a böngésző security-popup elkerülve és a blob URL stream-elhető
+        let res = await fetch(downloadUrl);
+        if (!res.ok) { showToast("Letöltési hiba (HTTP " + res.status + ")", true); return; }
+        let blob = await res.blob();
+        let blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = filename || 'file';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        // Kis idő hogy a böngésző elindítsa a letöltést, aztán revoke
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
+        showToast("Letöltve: " + (filename || 'fájl'), false);
+    } catch (e) {
+        showToast("Letöltési hiba: " + (e.message || e), true);
+    }
 }
 
 // ==========================================

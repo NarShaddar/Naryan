@@ -227,10 +227,10 @@ function renderSavedServers() {
             avatarSrc = s.serverAvatar.startsWith('http') ? s.serverAvatar : `${baseUrl}${avatarPath}`;
         }
 
-        // 1. Bal oldali pici ikon
+        // 1. Bal oldali pici ikon (data-src → blob URL automatikusan)
         let icon = document.createElement('div'); icon.className = 'server-icon';
         if (avatarSrc !== "logo.png") {
-            icon.innerHTML = `<img src="${avatarSrc}" style="width:100%; height:100%; border-radius:inherit; object-fit:cover;">`;
+            icon.innerHTML = `<img data-src="${avatarSrc}" style="width:100%; height:100%; border-radius:inherit; object-fit:cover;" alt="">`;
         } else {
             icon.innerText = `${(s.serverName || s.url).charAt(0).toUpperCase()}`;
         }
@@ -243,7 +243,7 @@ function renderSavedServers() {
         if (hubGrid) {
             let card = document.createElement('div'); card.className = 'hub-server-card';
             let logoHtml = (avatarSrc !== "logo.png")
-                ? `<img src="${avatarSrc}" style="width:100%; height:100%; object-fit:cover; border-radius:inherit;">`
+                ? `<img data-src="${avatarSrc}" style="width:100%; height:100%; object-fit:cover; border-radius:inherit;" alt="">`
                 : `${(s.serverName || s.url).charAt(0).toUpperCase()}`;
 
             card.innerHTML = `
@@ -568,7 +568,8 @@ async function openMembersView() {
 
     serverUsersCache.forEach(u => {
         if (u.id !== currentUserId) {
-            let bgStyle = u.avatar ? `background-image: url('${currentServerUrl}${u.avatar}'); background-size: cover; background-position: center; color: transparent;` : "";
+            let avatarBgAttr = u.avatar ? `data-bg-src="${currentServerUrl}${u.avatar}"` : "";
+            let avatarTextColor = u.avatar ? "color: transparent;" : "";
             
             // Ha valaki fizikailag nincs gépnél, VAGY láthatatlanra rakta magát, akkor egyaránt OFFLINE-nak hazudjuk a többieknek!
             let effectiveStatus = u.isOnline ? (u.status || 'online') : 'offline';
@@ -590,8 +591,8 @@ async function openMembersView() {
             <div class="member-card" data-id="${u.id}">
                 <div class="member-info">
                     <div style="position:relative;">
-                        <div class="avatar-small" style="${bgStyle}">
-                            ${u.avatar ? '' : u.username.charAt(0).toUpperCase()}
+                        <div class="avatar-small" ${avatarBgAttr} style="${avatarTextColor}">
+                            ${u.username.charAt(0).toUpperCase()}
                             <div class="status-dot status-${effectiveStatus} user-status-${u.id}"></div>
                         </div>
                         ${unreadDotHtml}
@@ -668,7 +669,7 @@ if (unreadChannels.has(id)) {
     if (res.ok) {
         let msgs = await res.json(); let maxId = 0;
         msgs.forEach(m => {
-            appendMessage(m.content, m.senderId === currentUserId, m.id, m.time, m.senderName, m.senderId, m.reactions); if (m.id > maxId) maxId = m.id;
+            appendMessage(m.content, m.senderId === currentUserId, m.id, m.time, m.senderName, m.senderId, m.reactions, m.timestamp); if (m.id > maxId) maxId = m.id;
         });
         if (maxId > 0) saveReadReceipt('channels', id, maxId);
     }
@@ -711,7 +712,7 @@ async function openDirectMessage(targetId, targetName) {
 
     if (res.ok) {
         let msgs = await res.json(); let maxId = 0;
-        msgs.forEach(m => { appendMessage(m.content, m.senderId === currentUserId, m.id, m.time, m.senderName, m.senderId, m.reactions); if (m.id > maxId) maxId = m.id; });
+        msgs.forEach(m => { appendMessage(m.content, m.senderId === currentUserId, m.id, m.time, m.senderName, m.senderId, m.reactions, m.timestamp); if (m.id > maxId) maxId = m.id; });
         if (maxId > 0) saveReadReceipt('dms', targetId, maxId);
     }
 }
@@ -865,9 +866,10 @@ function createAppToast(senderId, title, text, targetId, isDM, channelName, send
     let toast = document.createElement('div');
     toast.className = 'toast-card';
     let u = serverUsersCache.find(x => x.id === senderId);
-    let bgStyle = (u && u.avatar) ? `background-image: url('${currentServerUrl}${u.avatar}'); background-size: cover; background-position: center; color: transparent;` : "";
+    let avatarBgAttr = (u && u.avatar) ? `data-bg-src="${currentServerUrl}${u.avatar}"` : "";
+    let avatarColor = (u && u.avatar) ? "color: transparent;" : "";
     let initial = senderName ? senderName.charAt(0).toUpperCase() : "?";
-    toast.innerHTML = `<div class="toast-avatar" style="${bgStyle}">${initial}</div><div class="toast-content"><div class="toast-title">${title}</div><div class="toast-text">${text}</div></div>`;
+    toast.innerHTML = `<div class="toast-avatar" ${avatarBgAttr} style="${avatarColor}">${initial}</div><div class="toast-content"><div class="toast-title">${title}</div><div class="toast-text">${text}</div></div>`;
     toast.onclick = () => {
         if (isDM)
             openDirectMessage(targetId, senderName);

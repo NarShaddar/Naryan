@@ -201,7 +201,7 @@ function updateNotifSetting(type, isChecked) {
 // ==========================================
 // GLOBÁLIS UI FRISSÍTŐ FÜGGVÉNYEK
 // ==========================================
-window.refreshMyProfileUI = function() {
+window.refreshMyProfileUI = function () {
     let me = typeof serverUsersCache !== 'undefined' ? serverUsersCache.find(u => u.id === currentUserId) : null;
     if (!me) return;
 
@@ -209,17 +209,20 @@ window.refreshMyProfileUI = function() {
     if (!myAvatarEl) return;
 
     let myStatus = me.status || 'online';
+    let initial = me.username ? me.username.charAt(0).toUpperCase() : '?';
+
+    // Default-avatar: a kezdőbetű mindig ott van mint fallback, ha a kép nem töltődik be
+    myAvatarEl.innerHTML = `${initial}<div class="status-dot status-${myStatus} user-status-${currentUserId}"></div>`;
+    myAvatarEl.style.color = "var(--accent)";
 
     if (me.avatar) {
         let fullUrl = currentServerUrl + me.avatar;
-        myAvatarEl.style.backgroundImage = `url('${fullUrl}')`;
-        myAvatarEl.style.backgroundSize = "cover";
-        myAvatarEl.style.color = "transparent";
-        myAvatarEl.innerHTML = `<div class="status-dot status-${myStatus} user-status-${currentUserId}"></div>`;
+        // Cache invalidate ha új avatar (timestamp-szerű ellenőrzés helyett a most feltöltött URL friss)
+        window.naryanLoadBg(myAvatarEl, fullUrl).then(() => {
+            // Ha sikeresen betöltött, a kezdőbetűt elrejtjük (de a status pötty marad)
+            myAvatarEl.style.color = "transparent";
+        });
     } else {
-        let initial = me.username ? me.username.charAt(0).toUpperCase() : '?';
         myAvatarEl.style.backgroundImage = "none";
-        myAvatarEl.style.color = "var(--accent)";
-        myAvatarEl.innerHTML = `${initial} <div class="status-dot status-${myStatus} user-status-${currentUserId}"></div>`;
     }
 };

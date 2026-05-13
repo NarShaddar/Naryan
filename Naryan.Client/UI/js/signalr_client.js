@@ -5,9 +5,9 @@ function initSignalR() {
     if (hubConnection) return;
     hubConnection = new signalR.HubConnectionBuilder().withUrl(`${currentServerUrl}/chatHub`).withAutomaticReconnect().build();
 
-    hubConnection.on("ReceiveMessage", (msgId, channelId, senderId, senderName, content, time) => {
+    hubConnection.on("ReceiveMessage", (msgId, channelId, senderId, senderName, content, time, isoTimestamp) => {
         if (channelId === currentChannelId && currentDMTargetId === 0) {
-            appendMessage(content, senderId === currentUserId, msgId, time, senderName, senderId);
+            appendMessage(content, senderId === currentUserId, msgId, time, senderName, senderId, "{}", isoTimestamp);
             saveReadReceipt('channels', channelId, msgId);
         }
         else {
@@ -56,10 +56,10 @@ function initSignalR() {
         }
     });
 
-    hubConnection.on("ReceiveDirectMessage", (msgId, senderId, receiverId, content, time) => {
+    hubConnection.on("ReceiveDirectMessage", (msgId, senderId, receiverId, content, time, isoTimestamp) => {
         if (currentDMTargetId > 0 && (senderId === currentDMTargetId || receiverId === currentDMTargetId)) {
             let sName = senderId === currentUserId ? currentUsername : serverUsersCache.find(u => u.id == senderId)?.username || "Partner";
-            appendMessage(content, senderId === currentUserId, msgId, time, sName, senderId);
+            appendMessage(content, senderId === currentUserId, msgId, time, sName, senderId, "{}", isoTimestamp);
             saveReadReceipt('dms', currentDMTargetId, msgId);
         }
         else if (senderId !== currentUserId) {
@@ -101,7 +101,7 @@ function initSignalR() {
                 if (response.ok) {
                     let msgs = await response.json();
                     msgs.forEach(m => {
-                        appendMessage(m.content, m.senderId === currentUserId, m.id, m.time, m.senderName, m.senderId);
+                        appendMessage(m.content, m.senderId === currentUserId, m.id, m.time, m.senderName, m.senderId, "{}", m.timestamp);
                     });
                 }
             } catch (err) {
@@ -116,29 +116,47 @@ function initSignalR() {
             fetch(`${currentServerUrl}/api/dm/${currentUserId}/${currentDMTargetId}`)
                 .then(r => r.json()).then(msgs => {
                     msgs.forEach(m => {
-                        appendMessage(m.content, m.senderId === currentUserId, m.id, m.time, m.senderName, m.senderId)
+                        appendMessage(m.content, m.senderId === currentUserId, m.id, m.time, m.senderName, m.senderId, "{}", m.timestamp)
                     });
                 });
         }
     });
 
     hubConnection.on("UserAvatarChanged", (userId, newAvatarUrl) => {
-        let u = serverUsersCache.find(x => x.id === userId); if (u) u.avatar = newAvatarUrl;
+        let u = serverUsersCache.find(x => x.id === userId);
+        if (u) u.avatar = newAvatarUrl;
         let fullUrl = newAvatarUrl ? currentServerUrl + newAvatarUrl : "";
+
+        // Cache invalidálás, hogy a régi blob URL ne maradjon
+        if (window.naryanImageCache && fullUrl) window.naryanImageCache.delete(fullUrl);
+
+        // Member-card avatar frissítés blob URL-en keresztül
         const userAvatars = document.querySelectorAll(`.member-card[data-id="${userId}"] .avatar-small`);
         userAvatars.forEach(el => {
+            // Mindig megtartjuk a kezdőbetűt mint fallback
+            let statusDot = el.querySelector('.status-dot');
+            el.innerHTML = (u ? u.username.charAt(0).toUpperCase() : "?");
+            if (statusDot) el.appendChild(statusDot);
+
             if (fullUrl) {
-                el.innerHTML = "";
-                el.style.backgroundImage = `url('${fullUrl}')`;
-                el.style.backgroundSize = "cover";
-                el.style.backgroundPosition = "center";
-                el.style.color = "transparent";
+                window.naryanLoadBg(el, fullUrl).then(() => {
+                    el.style.color = "transparent";
+                });
             } else {
                 el.style.backgroundImage = "none";
                 el.style.color = "var(--accent)";
-                el.innerHTML = u ? u.username.charAt(0).toUpperCase() : "?";
             }
         });
+
+        // Voice channel avatar frissítés (ha látszik)
+        document.querySelectorAll(`.voice-user-avatar[data-bg-src*="${newAvatarUrl}"]`).forEach(el => {
+            if (fullUrl) window.naryanLoadBg(el, fullUrl);
+        });
+
+        // Saját profil frissítése, ha ÉN változtam
+        if (userId === currentUserId && typeof refreshMyProfileUI === 'function') {
+            refreshMyProfileUI();
+        }
     });
 
     hubConnection.on("ServerInfoUpdated", (newName, newAvatarUrl, newFps) => {
@@ -172,8 +190,9 @@ function initSignalR() {
         userIds.forEach(uid => {
             let u = serverUsersCache.find(x => x.id === uid);
             let uName = u ? u.username : "Ismeretlen";
-            let bgStyle = (u && u.avatar) ? `background-image: url('${currentServerUrl}${u.avatar}'); background-size: cover; background-position: center; color: transparent;` : "";
-            html += `<div class="voice-user-item"><div class="voice-user-avatar" style="${bgStyle}">${uName.charAt(0).toUpperCase()}</div>${uName}</div>`;
+            let avatarBgAttr = (u && u.avatar) ? `data-bg-src="${currentServerUrl}${u.avatar}"` : "";
+            let avatarColor = (u && u.avatar) ? "color: transparent;" : "";
+            html += `<div class="voice-user-item"><div class="voice-user-avatar" ${avatarBgAttr} style="${avatarColor}">${uName.charAt(0).toUpperCase()}</div>${uName}</div>`;
         });
         container.innerHTML = html;
     });

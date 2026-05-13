@@ -17,6 +17,8 @@ window.setClientVersion = function (v) {
     updaterCurrentVersion = v || "0.0.0";
     let el = document.getElementById('UpdaterCurrentVersion');
     if (el) el.innerText = "v" + updaterCurrentVersion;
+    let hubV = document.getElementById('HubStatVersion');
+    if (hubV) hubV.innerText = "v" + updaterCurrentVersion;
 };
 
 // --- Modal megjelenítése / elrejtése ---
